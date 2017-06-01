@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>ShurikenToss</title>
+  <style>
+  	 * { 
+      padding: 0; 
+      margin: 0; 
+    }
+    canvas { 
+      background: rgb(242,233,216); 
+      display: block; 
+      margin: 0 auto; 
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="myCanvas" width="320" height="480"></canvas>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+<script src="./game-frontend.js"></script>
+<script>
+  // JavaScript code goes here
+
+  // INITIALIZE VARIABLES
+  var canvas = document.getElementById("myCanvas");
+	var ctx = canvas.getContext("2d"); 
+
+  var ninjaWidth = 29;
+  var ninjaHeight = 43;
+  var ninjax = canvas.width/2 - ninjaWidth/2; 
+  var ninjay = canvas.height - ninjaHeight - 5;
+  var ninjamovement = 4;
+  var rightPressed = false;
+  var leftPressed = false;
+  var ninjaImageNumber = 1;
+
+  var shurikenWidth = 18;
+  var shurikenHeight = 18;
+  var shurikendy = -3;
+  var shurikens = [];
+
+  var monsterWidth = 44;
+  var monsterHeight = 33;
+  var monsterdy = 1;
+  var monsters = [];
+  
+  var poofs = []
+  var poofWidth = (monsterWidth + monsterHeight) /2
+  var poofHeight = poofWidth;
+
+  var lives = 3;
+  var score = 0;
+
+  var backgroundAudio;
+  var backgroundVolume = .3;
+  var poofVolume = 1;
+
+
+  // INITIAL FUNCTION CALLS
+  addShuriken();
+  addMonster();
+  setBackgroundMusic();
+  draw();
+
+  setInterval(function(){
+    addShuriken()
+  }, 400);
+
+  setInterval(function(){
+    addMonster();
+  }, 450);
+
+  // Animate Ninja Walking
+  setInterval(function(){
+    if (ninjaImageNumber == 1){
+      ninjaImageNumber = 2;
+    } else {
+      ninjaImageNumber = 1;
+    }
+  }, 180);
+  
+
+  // MAIN DRAW FUNCTION - ANIMATION LOOP
+  function draw() {
+    // .cleaRect(x, y, width, height)
+    // erases previously drawn content within specified bounds
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawNinja(ninjax, ninjay);
+    drawMoveShurikens();
+    drawMoveMonsters();
+    drawLives();
+    drawScore();
+    drawPoofs();
+    ninjaMonsterCollision();
+    shurikenMonsterCollision();
+
+    if(rightPressed && ninjax < (canvas.width - ninjaWidth)) {
+      ninjax = ninjax + ninjamovement;
+    }
+    else if(leftPressed && ninjax > 0) {
+      ninjax = ninjax - ninjamovement;
+    }
+
+    if (lives == 0) {
+      gameOver();
+    } else {
+      requestAnimationFrame(draw);
+    }
+  }
+  
+  // BACKGROUND MUSIC
+  function setBackgroundMusic() {
+    backgroundAudio = document.createElement("audio");
+    backgroundAudio.src = "audio/epic_orchestral.wav";
+    backgroundAudio.volume = backgroundVolume;
+    // backgroundAudio.playbackRate = 1.5;
+    backgroundAudio.play();
+
+    // triggers when audio file has ended, and restarts the audio
+    backgroundAudio.onended = function(){
+      backgroundAudio.play();        
+    };
+  }
+
+  // GAME OVER
+  function gameOver() {
+    // redraw the frame so that the number of lives is updated tp 0
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawNinja(ninjax, ninjay);
+    drawMoveShurikens();
+    drawMoveMonsters();
+    drawLives();
+    drawScore();
+
+    ctx.fillStyle = "Black";
+    ctx.font = "16px Arial";
+    ctx.fillText("GAME OVER", canvas.width/2-50, canvas.height/2-10);
+
+    ctx.fillStyle = "Black";
+    ctx.font = "14px Arial";
+    ctx.fillText("Score: " +score, canvas.width/2-28, canvas.height/2+10);
+    
+    setTimeout(function(){
+      // document.location.reload();
+    }, 1000);
+  };
+
+  // DRAW SCORE AND LIVES
+  function drawScore() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#0095DD";
+    ctx.fillText("Score: "+score, 8, 20);
+  }
+
+  function drawLives() {
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "#0095DD";
+    ctx.fillText("Lives: "+lives, canvas.width-65, 20);
+  }
+
+  // CONTROLS
+  document.addEventListener("keydown", keyDownHandler);
+  document.addEventListener("keyup", keyUpHandler);
+
+  function keyDownHandler(e) {
+    if(e.keyCode == 39) {
+        rightPressed = true;
+    }
+    else if(e.keyCode == 37) {
+        leftPressed = true;
+    }
+  }
+
+  function keyUpHandler(e) {
+    if(e.keyCode == 39) {
+        rightPressed = false;
+    }
+    else if(e.keyCode == 37) {
+        leftPressed = false;
+    }
+  }
+
+  // COLLISION
+  function shurikenMonsterCollision() {
+    for (i = 0; i < monsters.length; i++) {
+      monster = monsters[i];
+
+      monsterminx = monster.x;
+      monstermaxx = monster.x + monsterWidth;
+      monsterminy = monster.y;
+      monstermaxy = monster.y + monsterHeight;
+
+      for (s = 0; s < shurikens.length; s++) {
+        shuriken = shurikens[s];
+
+        shurikenminx = shuriken.x;
+        shurikenmaxx = shuriken.x + shurikenWidth;
+        shurikenminy = shuriken.y;
+        shurikenmaxy = shuriken.y + shurikenHeight;
+
+        // monster in the same x and y space as the shuriken
+        if ((shurikenmaxx > monsterminx && shurikenminx < monstermaxx ) && 
+          (monstermaxy > shurikenminy && monsterminy < shurikenmaxy )) {
+
+          poof = { x: monster.x, y: monster.y, dx: 0, dy: 0, time: new Date() }
+          poofs.push(poof);
+
+          // poof audio
+          poofAudio = document.createElement("audio");
+          poofAudio.src = "audio/poof.wav";
+          poofAudio.volume = poofVolume;
+          poofAudio.play();
+
+          // we remove the monster after getting hit so the same monster doesnt hit us multiple times      
+          monsters.splice(i, 1);
+          shurikens.splice(s,1);
+          score = score + 1;
+        }
+      }
+    }   
+  }
+
+  function ninjaMonsterCollision() {
+    for (i = 0; i < monsters.length; i++) {
+      monster = monsters[i];
+
+      monsterminx = monster.x;
+      monstermaxx = monster.x + monsterWidth;
+      monsterminy = monster.y;
+      monstermaxy = monster.y + monsterHeight;
+
+      ninjaminx = ninjax;
+      ninjamaxx = ninjax + ninjaWidth;
+
+      ninjaminy = ninjay;
+      ninjamaxy = ninjay + ninjaHeight;
+
+      // monster in the same x space and y space as the ninja
+      if ((ninjamaxx > monsterminx && ninjaminx < monstermaxx ) && 
+        (monstermaxy > ninjaminy && monsterminy < ninjamaxy )) {
+        console.log("you ran into a monster!");
+
+        // we remove the monster after getting hit so the same monster doesn't hit us multiple times
+        monsters.splice(i, 1);
+        lives = lives - 1;
+      }
+    }
+  }
+
+  // ADD OBJECTS
+  function addShuriken(){
+    shurikeny = ninjay - shurikenHeight;
+    shurikens.push({ x: ninjax, y: shurikeny, dx: 0, dy: shurikendy })
+  }
+
+  function addMonster() {
+    // we subtract the monsterWidth/2 to center where the monsters can appear
+    // this keeps the monster from from only barely appearing on the right side of the page
+    // if the monsterx is only just under the canvas.width
+    // this way at least half of the monster will appear on the page whether that is on the left or right side
+    monsterx = Math.random() * (canvas.width) - monsterWidth/2; 
+    monstery = 0;
+    monsters.push( {x: monsterx, y: monstery, dx: 0, dy: monsterdy });
+  }
+
+  // DRAW AND MOVE GROUPS OF OBJECTS
+  function drawPoofs() {
+    currentTime = new Date();
+    for (i = 0; i < poofs.length; i++) {
+      p = poofs[i];
+      if ((currentTime - p.time) > 1000) {
+        poofs.splice(p, 1);
+      }  
+      drawPoof(p);
+    }
+  }
+
+  function drawMoveShurikens(){
+    for (i = 0; i < shurikens.length; i++) {
+      s = shurikens[i];
+      drawShuriken(s.x, s.y);
+      s.y = s.y + s.dy;
+
+      // remove any shurikens that have moved off of the screen
+      if (s.y < 0) {
+        shurikens.splice(i, 1);
+      } 
+    }
+  }
+
+  function drawMoveMonsters() {
+    for (i = 0; i < monsters.length; i++) {
+      m = monsters[i];
+      drawMonster(m.x, m.y);
+      m.y = m.y + m.dy; 
+
+      // remove any monsters that have moved off of the screen
+      if (m.y > canvas.height) {
+        monsters.splice(i, 1);
+        lives = lives - 1;
+      }
+    }
+  }
+
+  // DRAW SINGLE OBJECTS
+  function drawPoof(poof){
+    image = new Image();
+
+    currentTime = new Date();
+    if ((currentTime - p.time) > 750) {
+      image.src = 'images/poof4.png';
+    } else if ((currentTime - p.time) > 500) {
+      image.src = 'images/poof3.png';
+    } else if ((currentTime - p.time) > 500) {
+      image.src = 'images/poof2.png';
+    } else {
+      image.src = 'images/poof1.png';
+    }
+    
+    ctx.drawImage(image, poof.x, poof.y, poofWidth, poofHeight); // drawImage(image, x, y, width, height)
+  }
+
+  function drawMonster(posx, posy) {
+    monster_image = new Image();
+    monster_image.src = 'images/monster_transparent.png';
+    ctx.drawImage(monster_image, posx, posy, monsterWidth, monsterHeight);
+  }
+
+  function drawShuriken(posx, posy){
+    shuriken_image = new Image();
+
+    // Note I am doing the shuriken animation a little differently from the ninja walking animation
+    // The % sign I am using here is called a modulo operator, it finds the remainder of a value
+    // after dividing. So 10%3 = 1 and 11%3 = 2 and 12%3 = 0
+    // I am also animating based on the position of the shuriken rather than a time interval
+    // Both ways work. this one is just a little less code.
+    if (Math.floor(posy/10) %3 == 0) {
+      shuriken_image.src = 'images/ns1.png';
+    } else if (Math.floor(posy/10) %3 == 1) {
+      shuriken_image.src = 'images/ns1_240.png';
+    } else {
+      shuriken_image.src = 'images/ns1_120.png';
+    }
+   
+    ctx.drawImage(shuriken_image, posx, posy, shurikenWidth, shurikenHeight);
+  }
+
+  function drawNinja(posx, posy) {
+    ninja_image = new Image();
+    if (ninjaImageNumber == 1) {
+      ninja_image.src = 'images/up1.png';
+    } else {
+      ninja_image.src = 'images/up2.png';
+    }
+
+    // .drawImage(image, x, y, width, height)
+    ctx.drawImage(ninja_image, posx, posy, ninjaWidth, ninjaHeight);     
+  }  
+  
+</script>
+</body>
+</html>
