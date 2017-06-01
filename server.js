@@ -9,7 +9,7 @@ var server = http.createServer(function(request, response) {});
 var clients = [];
 
 server.listen(webSocketServerPort, function() {
-	console.log((new Date()) + " Sever is listening on port " + webSocketServerPort);
+	console.log((new Date()) + " Server is listening on port " + webSocketServerPort);
 });
 
 // WEBSOCKET SERVER
