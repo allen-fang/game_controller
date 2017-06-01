@@ -1,5 +1,5 @@
 $(function () {
-	var connection = new WebSocket('ws://127.0.0.1:8000');
+	var connection = new WebSocket('ws://34.211.82.243:8000');
 	console.log('connecting')
 	console.log(connection)
 
